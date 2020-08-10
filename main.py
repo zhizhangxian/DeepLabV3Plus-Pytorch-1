@@ -254,8 +254,6 @@ def main():
     if opts.separable_conv and 'plus' in opts.model:
         network.convert_to_separable_conv(model.classifier)
     utils.set_bn_momentum(model.backbone, momentum=0.01)
-    #model = model.to(device)
-    #print(model)
     
     # Set up metrics
     metrics = StreamSegMetrics(opts.num_classes)
@@ -266,7 +264,7 @@ def main():
         {'params': model.classifier.parameters(), 'lr': opts.lr},
     ], lr=opts.lr, momentum=0.9, weight_decay=opts.weight_decay)
     #optimizer = torch.optim.SGD(params=model.parameters(), lr=opts.lr, momentum=0.9, weight_decay=opts.weight_decay)
-    # torch.optim.lr_scheduler.StepLR(optimizer, step_size=opts.lr_decay_step, gamma=opts.lr_decay_factor)
+    #torch.optim.lr_scheduler.StepLR(optimizer, step_size=opts.lr_decay_step, gamma=opts.lr_decay_factor)
     if opts.lr_policy=='poly':
         scheduler = utils.PolyLR(optimizer, opts.total_itrs, power=0.9)
     elif opts.lr_policy=='step':
@@ -297,8 +295,11 @@ def main():
     cur_itrs = 0
     cur_epochs = 0
     if opts.ckpt is not None and os.path.isfile(opts.ckpt):
-        checkpoint = torch.load(opts.ckpt)
+        # https://github.com/VainF/DeepLabV3Plus-Pytorch/issues/8#issuecomment-605601402, @PytaichukBohdan
+        checkpoint = torch.load(opts.ckpt, map_location=torch.device('cpu'))
         model.load_state_dict(checkpoint["model_state"])
+        model = nn.DataParallel(model)
+        model.to(device)
         if opts.continue_training:
             optimizer.load_state_dict(checkpoint["optimizer_state"])
             scheduler.load_state_dict(checkpoint["scheduler_state"])
@@ -309,15 +310,13 @@ def main():
         del checkpoint  # free memory
     else:
         print("[!] Retrain")
-
-    model = nn.DataParallel(model)
-    model.to(device)
+        model = nn.DataParallel(model)
+        model.to(device)
 
     #==========   Train Loop   ==========#
     vis_sample_id = np.random.randint(0, len(val_loader), opts.vis_num_samples,
                                       np.int32) if opts.enable_vis else None  # sample idxs for visualization
-    denorm = utils.Denormalize(mean=[0.485, 0.456, 0.406], std=[
-                               0.229, 0.224, 0.225])  # denormalization for ori images
+    denorm = utils.Denormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # denormalization for ori images
 
     if opts.test_only:
         model.eval()
@@ -327,7 +326,7 @@ def main():
         return
 
     interval_loss = 0
-    while cur_itrs < opts.total_itrs:
+    while True: #cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
         cur_epochs += 1
@@ -356,7 +355,7 @@ def main():
 
             if (cur_itrs) % opts.val_interval == 0:
                 save_ckpt('checkpoints/latest_%s_%s_os%d.pth' %
-                          (opts.model, opts.dataset,opts.output_stride))
+                          (opts.model, opts.dataset, opts.output_stride))
                 print("validation...")
                 model.eval()
                 val_score, ret_samples = validate(
@@ -379,7 +378,11 @@ def main():
                         concat_img = np.concatenate((img, target, lbl), axis=2)  # concat along width
                         vis.vis_image('Sample %d' % k, concat_img)
                 model.train()
-            scheduler.step()    
+            scheduler.step()  
+
+            if cur_itrs >=  opts.total_itrs:
+                return
+
         
 if __name__ == '__main__':
     main()

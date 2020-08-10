@@ -13,6 +13,10 @@ Specify the model architecture with '--model ARCH_NAME' and set the output strid
 
 All available pretrained models: [Dropbox](https://www.dropbox.com/sh/w3z9z8lqpi8b2w7/AAB0vkl4F5vy6HdIhmRCTKHSa?dl=0)
 
+Load the pretrained model:
+```python
+model.load_state_dict( torch.load( CKPT_PATH )['model_state']  )
+```
 
 #### Atrous Separable Convolution
 Atrous Separable Convolution is supported in this repo. We provide a simple tool ``network.convert_to_separable_conv`` to convert ``nn.Conv2d`` to ``AtrousSeparableConvolution``. **Please run main.py with '--separable_conv' if it is required**. See 'main.py' and 'network/_deeplab.py' for more details. 
@@ -23,23 +27,30 @@ Atrous Separable Convolution is supported in this repo. We provide a simple tool
 
 ## Results
 
-#### Performances on Pascal VOC2012 Aug (20 classes, 513 x 513, 513 random crop)
+#### Performances on Pascal VOC2012 Aug (21 classes, 513 x 513)
+
+Training: 513x513 random crop  
+validation: 513x513 center crop
 
 |  Model          | Batch Size  | FLOPs  | train/val OS   |  mIoU        | Checkpoint  |
 | :--------        | :-------------: | :----:   | :-----------: | :--------: | :--------: | 
-| DeepLabV3Plus-MobileNet   | 16      |  17.0G      |  16/16   |  0.711    |    [Download](https://www.dropbox.com/s/0idrhwz6opaj7q4/best_deeplabv3plus_mobilenet_voc_os16.pth?dl=0)   |
 | DeepLabV3-MobileNet       | 16      |  6.0G      |   16/16  |  0.701     |    [Download](https://www.dropbox.com/s/uhksxwfcim3nkpo/best_deeplabv3_mobilenet_voc_os16.pth?dl=0)       |
-| DeepLabV3Plus-ResNet101     | 16      |  83.4G     |  16/16   |  0.783     |    [Download](https://www.dropbox.com/s/bm3hxe7wmakaqc5/best_deeplabv3plus_resnet101_voc_os16.pth?dl=0)   |
+| DeepLabV3-ResNet50         | 16      |  51.4G     |  16/16   |  0.769     |    [Download](https://www.dropbox.com/s/3eag5ojccwiexkq/best_deeplabv3_resnet50_voc_os16.pth?dl=0)  
 | DeepLabV3-ResNet101         | 16      |  72.1G     |  16/16   |  0.773     |    [Download](https://www.dropbox.com/s/vtenndnsrnh4068/best_deeplabv3_resnet101_voc_os16.pth?dl=0)       |
+| DeepLabV3Plus-MobileNet   | 16      |  17.0G      |  16/16   |  0.711    |    [Download](https://www.dropbox.com/s/0idrhwz6opaj7q4/best_deeplabv3plus_mobilenet_voc_os16.pth?dl=0)   |
+| DeepLabV3Plus-ResNet50    | 16      |   62.7G     |  16/16   |  0.772     |    [Download](https://www.dropbox.com/s/dgxyd3jkyz24voa/best_deeplabv3plus_resnet50_voc_os16.pth?dl=0)   |
+| DeepLabV3Plus-ResNet101     | 16      |  83.4G     |  16/16   |  0.783     |    [Download](https://www.dropbox.com/s/bm3hxe7wmakaqc5/best_deeplabv3plus_resnet101_voc_os16.pth?dl=0)   |
 
-#### Performances on Cityscapes (19 classes, 1024 x 2048, 768 random crop)
+
+#### Performances on Cityscapes (19 classes, 1024 x 2048)
+
+Training: 768x768 random crop  
+validation: 1024x2048
 
 |  Model          | Batch Size  | FLOPs  | train/val OS   |  mIoU        | Checkpoint  |
 | :--------        | :-------------: | :----:   | :-----------: | :--------: | :--------: | 
-| DeepLabV3Plus-MobileNet   | 16      |  135G      |  16/16   |  0.721  |    [Download](https://www.dropbox.com/s/753ojyvsh3vdjol/best_deeplabv3plus_mobilenet_cityscapes_os16.pth?dl=0)       |
-| DeepLabV3-MobileNet       | -      |  47.2G     |  16/16   |  -      |    -       |
-| DeepLabV3Plus-ResNet101     | -      |  634G    |  16/16   |  -      |    -       |
-| DeepLabV3-ResNet101         | -      |  545G     |  16/16   |  -      |    -       |
+| DeepLabV3Plus-MobileNet   | 16      |  135G      |  16/16   |  0.721  |    [Download](https://www.dropbox.com/s/753ojyvsh3vdjol/best_deeplabv3plus_mobilenet_cityscapes_os16.pth?dl=0)  
+
 
 #### Segmentation Results on Pascal VOC2012 (DeepLabv3Plus-MobileNet)
 
@@ -77,7 +88,7 @@ Atrous Separable Convolution is supported in this repo. We provide a simple tool
 </div>
 
 
-#### Vsualization of training
+#### Visualization of training
 
 ![trainvis](samples/visdom-screenshoot.png)
 
@@ -146,6 +157,8 @@ visdom -port 28333
 #### Train with OS=16
 
 Run main.py with *"--year 2012_aug"* to train your model on Pascal VOC2012 Aug. You can also parallel your training on 4 GPUs with '--gpu_id 0,1,2,3'
+
+**Note: There is no SyncBN in this repo, so training with multple GPUs may degrades the performance. See [PyTorch-Encoding](https://hangzhang.org/PyTorch-Encoding/tutorials/syncbn.html) for more details about SyncBN**
 
 ```bash
 python main.py --model deeplabv3plus_mobilenet --enable_vis --vis_port 28333 --gpu_id 0 --year 2012_aug --crop_val --lr 0.01 --crop_size 513 --batch_size 16 --output_stride 16
