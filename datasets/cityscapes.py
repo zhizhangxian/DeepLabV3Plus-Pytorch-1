@@ -145,3 +145,8 @@ class Cityscapes(data.Dataset):
             return '{}_polygons.json'.format(mode)
         elif target_type == 'depth':
             return '{}_disparity.png'.format(mode)
+
+
+if __name__ == "__main__":
+    dataset = Cityscapes(root='/seu_share/home/wkyang/dataset/cityscapes')
+    print(dataset[0][0].shape)
