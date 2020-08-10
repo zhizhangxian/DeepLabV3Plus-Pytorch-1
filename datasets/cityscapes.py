@@ -149,4 +149,4 @@ class Cityscapes(data.Dataset):
 
 if __name__ == "__main__":
     dataset = Cityscapes(root='/seu_share/home/wkyang/dataset/cityscapes')
-    print(dataset[0][0].shape)
+    print(dataset[0][0])
