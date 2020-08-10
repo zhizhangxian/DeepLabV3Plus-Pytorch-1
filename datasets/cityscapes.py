@@ -124,6 +124,7 @@ class Cityscapes(data.Dataset):
         if self.transform:
             image, target = self.transform(image, target)
         target = self.encode_target(target)
+
         return image, target
 
     def __len__(self):
@@ -147,6 +148,37 @@ class Cityscapes(data.Dataset):
             return '{}_disparity.png'.format(mode)
 
 
-if __name__ == "__main__":
+
+
+
+def collate_fn(batchs):
+    mini_batch = {'img_len': len(batch[0][0])}
+    Imgs = []
+    Labels = []
+    Transforms = []
+    Overlap = []
+    for batch in batchs:
+        # for img, label, transform, overlap in batch
+        imgs, labels, transforms, overlap = batch
+        Imgs.append(imgs.unsqueeze(0))
+        Labels.append(labels.unsqueeze(0))
+        Transforms.append(transforms.unsqueeze(0))
+        Overlap.append(overlap.unsqueeze(0))
+    mini_batch['imgs'] = torch.cat(Imgs, dim=0)
+    mini_batch['labels'] = torch.cat(Labels, dim=0)
+    mini_batch['transforms'] = torch.cat(Transforms, dim=0)
+    mini_batch['Overlap'] = torch.cat(Overlap, dim=0)
+
+    return mini_batch
+
+
+def main():
     dataset = Cityscapes(root='/seu_share/home/wkyang/dataset/cityscapes')
     print(dataset[0][0])
+    from torch.utils.data.dataloader import DataLoader
+    dl = DataLoader(dataset, collate_fn=collate_fn)
+    return dl
+
+
+if __name__ == "__main__":
+    main()

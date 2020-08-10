@@ -52,8 +52,12 @@ class ExtCompose(object):
 
     def __call__(self, img, lbl):
         for t in self.transforms:
-            img, lbl = t(img, lbl)
-        return img, lbl
+            if isinstance(t, ExtRandomCrop):
+                img, lbl, crop_loc = t(img, lbl)
+            else:
+                img, lbl = t(img, lbl)
+
+        return img, lbl, crop_loc
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
@@ -397,7 +401,7 @@ class ExtRandomCrop(object):
 
         i, j, h, w = self.get_params(img, self.size)
 
-        return F.crop(img, i, j, h, w), F.crop(lbl, i, j, h, w)
+        return F.crop(img, i, j, h, w), F.crop(lbl, i, j, h, w), (i, j, h, w)
 
     def __repr__(self):
         return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)
