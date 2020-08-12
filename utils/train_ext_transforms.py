@@ -390,18 +390,20 @@ class ExtRandomCrop(object):
             lbl = F.pad(lbl, self.padding)
 
         # pad the width if needed
+        padding_x, padding_y = 0, 0
         if self.pad_if_needed and img.size[0] < self.size[1]:
+            padding_x = int((1 + self.size[1] - img.size[0]) / 2)
             img = F.pad(img, padding=int((1 + self.size[1] - img.size[0]) / 2))
             lbl = F.pad(lbl, padding=int((1 + self.size[1] - lbl.size[0]) / 2))
 
         # pad the height if needed
         if self.pad_if_needed and img.size[1] < self.size[0]:
+            padding_y = padding=int((1 + self.size[0] - img.size[1]) / 2)
             img = F.pad(img, padding=int((1 + self.size[0] - img.size[1]) / 2))
             lbl = F.pad(lbl, padding=int((1 + self.size[0] - lbl.size[1]) / 2))
 
         i, j, h, w = self.get_params(img, self.size)
-
-        return F.crop(img, i, j, h, w), F.crop(lbl, i, j, h, w), (i, j, h, w)
+        return F.crop(img, i, j, h, w), F.crop(lbl, i, j, h, w), (i, j, h, w, padding_x, padding_y)
 
     def __repr__(self):
         return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)

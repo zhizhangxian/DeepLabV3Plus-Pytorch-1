@@ -124,7 +124,7 @@ def get_dataset(opts):
                                 std=[0.229, 0.224, 0.225]),
             ])
         train_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
-                                    image_set='train', download=opts.download, transform=train_transform)
+                                    image_set='train', download=opts.download, transform=train_transform, num_copy=1)
         val_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
                                   image_set='val', download=False, transform=val_transform)
 
@@ -236,7 +236,7 @@ def main():
 
     train_dst, val_dst = get_dataset(opts)
     train_loader = data.DataLoader(
-        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2)
+        train_dst, batch_size=opts.batch_size // 2, shuffle=True, num_workers=2)
     val_loader = data.DataLoader(
         val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
     print("Dataset: %s, Train set: %d, Val set: %d" %
@@ -278,6 +278,7 @@ def main():
         criterion = utils.FocalLoss(ignore_index=255, size_average=True)
     elif opts.loss_type == 'cross_entropy':
         criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
+    Criterion = nn.MSELoss()
 
     def save_ckpt(path):
         """ save current model
@@ -332,7 +333,10 @@ def main():
         # =====  Train  =====
         model.train()
         cur_epochs += 1
-        for (images, labels) in train_loader:
+        Lambda = 1
+        # for (images, labels) in train_loader:
+        for sample in train_loader:
+            images, labels, overlaps = sample
             cur_itrs += 1
 
             images = images.to(device, dtype=torch.float32)
@@ -341,6 +345,10 @@ def main():
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
+            for i in range(images.shape[0] // 2):
+                overlap_0 = outputs[2 * i, overlaps[0][i]]
+                overlap_1 = outputs[2 * i + 1, overlaps[1][i]]
+                loss += Lambda * Criterion(overlap_0 + overlap_1)
             loss.backward()
             optimizer.step()
 
