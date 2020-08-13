@@ -14,7 +14,7 @@ from metrics import StreamSegMetrics
 
 import torch
 import torch.nn as nn
-from utils.visualizer import Visualizer
+#from utils.visualizer import Visualizer
 
 from PIL import Image
 import matplotlib
@@ -25,7 +25,7 @@ def get_argparser():
     parser = argparse.ArgumentParser()
 
     # Datset Options
-    parser.add_argument("--data_root", type=str, default='./datasets/data',
+    parser.add_argument("--data_root", type=str, default='/seu_share/home/wkyang/dataset/VOC/VOC12/',
                         help="path to Dataset")
     parser.add_argument("--dataset", type=str, default='voc',
                         choices=['voc', 'cityscapes'], help='Name of dataset')
@@ -124,7 +124,7 @@ def get_dataset(opts):
                                 std=[0.229, 0.224, 0.225]),
             ])
         train_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
-                                    image_set='train', download=opts.download, transform=train_transform, num_copy=1)
+                                    image_set='train', download=opts.download, transform=train_transform, num_copy=2)
         val_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
                                   image_set='val', download=False, transform=val_transform)
 
@@ -216,10 +216,10 @@ def main():
         opts.num_classes = 19
 
     # Setup visualization
-    vis = Visualizer(port=opts.vis_port,
-                     env=opts.vis_env) if opts.enable_vis else None
-    if vis is not None:  # display options
-        vis.vis_table("Options", vars(opts))
+#    vis = Visualizer(port=opts.vis_port,
+#                     env=opts.vis_env) if opts.enable_vis else None
+#    if vis is not None:  # display options
+#        vis.vis_table("Options", vars(opts))
 
     os.environ['CUDA_VISIBLE_DEVICES'] = opts.gpu_id
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -235,8 +235,9 @@ def main():
         opts.val_batch_size = 1
 
     train_dst, val_dst = get_dataset(opts)
+    from datasets.voc import collate_fn2
     train_loader = data.DataLoader(
-        train_dst, batch_size=opts.batch_size // 2, shuffle=True, num_workers=2)
+        train_dst, batch_size=opts.batch_size // 2, collate_fn=collate_fn2,  shuffle=True, num_workers=2)
     val_loader = data.DataLoader(
         val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
     print("Dataset: %s, Train set: %d, Val set: %d" %
@@ -341,7 +342,11 @@ def main():
 
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.long)
-
+            #overlaps[0] = overlaps[0].to(device, dtype=torch.bool)
+            #overlaps[1] = overlaps[1].to(device, dtype=torch.bool)
+            for overlap in overlaps:
+                for over in overlap:
+                    over = over.to(device, dtype=torch.bool)
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -376,17 +381,17 @@ def main():
                     save_ckpt('checkpoints/best_%s_%s_os%d.pth' %
                               (opts.model, opts.dataset, opts.output_stride))
 
-                if vis is not None:  # visualize validation score and samples
-                    vis.vis_scalar("[Val] Overall Acc", cur_itrs, val_score['Overall Acc'])
-                    vis.vis_scalar("[Val] Mean IoU", cur_itrs, val_score['Mean IoU'])
-                    vis.vis_table("[Val] Class IoU", val_score['Class IoU'])
+ #               if vis is not None:  # visualize validation score and samples
+ #                   vis.vis_scalar("[Val] Overall Acc", cur_itrs, val_score['Overall Acc'])
+ #                   vis.vis_scalar("[Val] Mean IoU", cur_itrs, val_score['Mean IoU'])
+ #                   vis.vis_table("[Val] Class IoU", val_score['Class IoU'])
 
                     for k, (img, target, lbl) in enumerate(ret_samples):
                         img = (denorm(img) * 255).astype(np.uint8)
                         target = train_dst.decode_target(target).transpose(2, 0, 1).astype(np.uint8)
                         lbl = train_dst.decode_target(lbl).transpose(2, 0, 1).astype(np.uint8)
                         concat_img = np.concatenate((img, target, lbl), axis=2)  # concat along width
-                        vis.vis_image('Sample %d' % k, concat_img)
+         #               vis.vis_image('Sample %d' % k, concat_img)
                 model.train()
             scheduler.step()
 
