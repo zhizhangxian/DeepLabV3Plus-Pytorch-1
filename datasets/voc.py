@@ -151,6 +151,7 @@ class VOCSegmentation(data.Dataset):
             tuple: (image, target) where target is the image segmentation.
         """
         img = Image.open(self.images[index]).convert('RGB')
+        __img = np.array(img).copy()
         W, H = img.size
         target = Image.open(self.masks[index])
         if self.transform is not None:
@@ -167,32 +168,20 @@ class VOCSegmentation(data.Dataset):
                     imgs.append(_img)
                     targets.append(_target)
                     transforms.append(_transform)
-                overlap = torch.zeros((H, W), dtype=torch.bool)
                 i1, j1, i2, j2 = transforms[0][0], transforms[0][1], transforms[1][0], transforms[1][1]
+                h, w = transforms[0][2], transforms[0][3]
                 padding_x, padding_y = transforms[0][-2], transforms[0][-1]
-                i1 -= padding_x
-                i2 == padding_x
-                j1 -= padding_y
-                j2 -= padding_y
-                # h, w = transforms[0][2], transforms[0][3]
-                h, w = 513, 513
 
-                overlap[max(i1, i2, 0):min(i1 + h, i2 + h, H), max(j1, j2, 0):min(j1 + w, j2 + w, W)] = 1
-                overlap1 = [max(i1, i2, 0) - i1, max(j1, j2, 0) - j1, min(i1 + h, i2 + h, H) - i1, min(j1 + w, j2 + w, W) - j1]
-                overlap2 = [max(i1, i2, 0) - i2, max(j1, j2, 0) - j2, min(i1 + h, i2 + h, H) - i2, min(j1 + w, j2 + w, W) - j2]
+                # # h, w = self.crop_x, self.crop_y
+                # overlap = torch.zeros((h, w), dtype=torch.bool)
+                # overlap[max(i1, i2, 0):min(i1 + h, i2 + h, H), max(j1, j2, 0):min(j1 + w, j2 + w, W)] = 1
+                overlap1 = [max(i2 - i1, 0), max(j2 - j1, 0), min(i2 - i1 + h, h), min(j2 - j1 + h, h)]
+                overlap2 = [max(i1 - i2, 0), max(j1 - j2, 0), min(i1 - i2 + h, w), min(j1 - j2 + h, w)]
                 overlaps = [overlap1, overlap2]
-
-                # print(imgs[0].shape)
-                # print(imgs[1].shape)
-                # print(max(i1, i2, 0),min(i1 + h, i2 + h, H), max(j1, j2, 0),min(j1 + w, j2 + w, W))
-                # print(imgs[0][:, overlap1[0]:overlap1[2], overlap1[1]:overlap1[3]].shape)
-                # print(imgs[1][:, overlap2[0]:overlap2[2], overlap2[1]:overlap2[3]].shape)
-                #
-                # exit()
                 return imgs, targets, overlaps
             else:
                 raise NotImplementedError
-        return img, target, overlap
+        return img, target
 
     def __len__(self):
         return len(self.images)
@@ -212,18 +201,19 @@ def download_extract(url, root, filename, md5):
 def collate_fn2(batchs):
     _imgs = []
     _targets = []
-    _overlaps = [[], []]
-    for batch in batchs:
+    _overlaps = []
+    for index, batch in enumerate(batchs):
+        _overlaps.append([])
         imgs, targets, overlaps = batch
         for i in range(len(imgs)):
             _imgs.append(torch.unsqueeze(imgs[i], 0))
             _targets.append(torch.unsqueeze(targets[i], 0))
-            _overlaps[i].append(overlaps[i])
+            _overlaps[index].append(overlaps[i])
     return torch.cat(_imgs, dim=0), torch.cat(_targets, dim=0), _overlaps
 
 
 def main():
-    train_transform = train_et.ExtCompose([
+    train_transform = train_et.train_ExtCompose([
         # et.ExtResize(size=opts.crop_size),
         # train_et.ExtRandomScale((0.5, 2.0)),
         train_et.ExtRandomCrop(size=(513, 513), pad_if_needed=True),
@@ -232,16 +222,37 @@ def main():
         train_et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                               std=[0.229, 0.224, 0.225]),
     ])
-    dataset = VOCSegmentation(root='/Users/zhangxian/Dataset/', transform=train_transform, num_copy=2)
+    val_transform = train_et.ExtCompose([
+        train_et.ExtToTensor(),
+        train_et.ExtNormalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225]),
+    ])
+    train_set = VOCSegmentation(root='/Users/zhangxian/Dataset/', transform=train_transform, num_copy=2, image_set='train')
+    val_set = VOCSegmentation(root='/Users/zhangxian/Dataset/', transform=val_transform, image_set='val')
+
+    batch_size = 4
     from torch.utils.data.dataloader import DataLoader
-    dl = DataLoader(dataset, collate_fn=collate_fn2, batch_size=2)
+    dl = DataLoader(train_set, collate_fn=collate_fn2, batch_size=batch_size, shuffle=False)
+    dl_val = DataLoader(val_set, collate_fn=None, batch_size=1, shuffle=False)
+
     for diter in dl:
-        print(diter[0].shape)
-        print(diter[1].shape)
-        print(len(diter[2][0]))
-        print(len(diter[2][1]))
-        exit()
+        img, label, overlap = diter[0], diter[1], diter[2]
+
+        # img_1 = img[0, :, overlap[0][0][0]:overlap[0][0][2], overlap[0][0][1]:overlap[0][0][3]]
+        # img_2 = img[1, :, overlap[0][1][0]:overlap[0][1][2], overlap[0][1][1]:overlap[0][1][3]]
+        for i in range(batch_size // 2):
+            img_1 = img[2 * i, :, overlap[i][0][0]:overlap[i][0][2], overlap[i][0][1]:overlap[i][0][3]]
+            img_2 = img[2 * i + 1, :, overlap[i][1][0]:overlap[i][1][2], overlap[i][1][1]:overlap[i][1][3]]
+            a = (img_1 == img_2)
+            print(a)
+        break
+    exit()
+    for diter in dl_val:
+        img, label = diter[0], diter[1]
+        print(img.shape)
+        print(label.shape)
     return dl
+
 
 def test():
     from matplotlib import pyplot as plt
@@ -255,11 +266,6 @@ def test():
                               std=[0.229, 0.224, 0.225]),
     ])
     dataset = VOCSegmentation(root='/Users/zhangxian/Dataset/', transform=train_transform, num_copy=2)
-    sample = dataset[3]
-    imgs, targets, overlap, img0 = sample
-    # print(overlap.shape)
-    # print(img0.shape)
-    # exit()
     _img = [np.array(img) for img in imgs]
     h, w, _ = _img[0].shape
     _img.append(cv2.resize(img0, _img[0].shape[:2], interpolation=1))
@@ -278,7 +284,7 @@ def test():
     cv2.waitKey(0)
     print(imgs)
     from torch.utils.data.dataloader import DataLoader
-    dl = DataLoader(dataset, collate_fn=collate_fn2)
+    dl = DataLoader(dataset, collate_fn=None)
     return dl
 
 

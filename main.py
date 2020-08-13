@@ -342,18 +342,16 @@ def main():
 
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.long)
-            #overlaps[0] = overlaps[0].to(device, dtype=torch.bool)
-            #overlaps[1] = overlaps[1].to(device, dtype=torch.bool)
-            for overlap in overlaps:
-                for over in overlap:
-                    over = over.to(device, dtype=torch.bool)
+
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
             for i in range(images.shape[0] // 2):
-                overlap_0 = outputs[2 * i, overlaps[0][i]]
-                overlap_1 = outputs[2 * i + 1, overlaps[1][i]]
-                loss += Lambda * Criterion(overlap_0 + overlap_1)
+                # overlap_0 = outputs[2 * i,  overlap[i][0][0]:overlap[i][0][2], overlap[i][0][1]:overlap[i][0][3]]
+                # overlap_1 = outputs[2 * i + 1, overlap[i][1][0]:overlap[i][1][2], overlap[i][1][1]:overlap[i][1][3]]
+                img_1 = outputs[2 * i, :, overlap[i][0][0]:overlap[i][0][2], overlap[i][0][1]:overlap[i][0][3]]
+                img_2 = outputs[2 * i + 1, :, overlap[i][1][0]:overlap[i][1][2], overlap[i][1][1]:overlap[i][1][3]]
+                loss += Lambda * Criterion(img_1, img_2)
             loss.backward()
             optimizer.step()
 
@@ -386,11 +384,11 @@ def main():
  #                   vis.vis_scalar("[Val] Mean IoU", cur_itrs, val_score['Mean IoU'])
  #                   vis.vis_table("[Val] Class IoU", val_score['Class IoU'])
 
-                    for k, (img, target, lbl) in enumerate(ret_samples):
-                        img = (denorm(img) * 255).astype(np.uint8)
-                        target = train_dst.decode_target(target).transpose(2, 0, 1).astype(np.uint8)
-                        lbl = train_dst.decode_target(lbl).transpose(2, 0, 1).astype(np.uint8)
-                        concat_img = np.concatenate((img, target, lbl), axis=2)  # concat along width
+                    # for k, (img, target, lbl) in enumerate(ret_samples):
+                    #     img = (denorm(img) * 255).astype(np.uint8)
+                    #     target = train_dst.decode_target(target).transpose(2, 0, 1).astype(np.uint8)
+                    #     lbl = train_dst.decode_target(lbl).transpose(2, 0, 1).astype(np.uint8)
+                    #     concat_img = np.concatenate((img, target, lbl), axis=2)  # concat along width
          #               vis.vis_image('Sample %d' % k, concat_img)
                 model.train()
             scheduler.step()
