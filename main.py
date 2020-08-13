@@ -56,7 +56,7 @@ def get_argparser():
                         help='crop validation (default: False)')
     parser.add_argument("--batch_size", type=int, default=16,
                         help='batch size (default: 16)')
-    parser.add_argument("--val_batch_size", type=int, default=4,
+    parser.add_argument("--val_batch_size", type=int, default=1,
                         help='batch size for validation (default: 4)')
     parser.add_argument("--crop_size", type=int, default=513)
 
@@ -110,7 +110,7 @@ def get_dataset(opts):
         ])
 
         if opts.crop_val:
-            val_transform = et.ExtCompose([
+            val_transform = train_et.train_ExtCompose([
                 et.ExtResize(opts.crop_size),
                 et.ExtCenterCrop(opts.crop_size),
                 et.ExtToTensor(),
@@ -337,7 +337,7 @@ def main():
         Lambda = 1
         # for (images, labels) in train_loader:
         for sample in train_loader:
-            images, labels, overlaps = sample
+            images, labels, overlap = sample
             cur_itrs += 1
 
             images = images.to(device, dtype=torch.float32)
@@ -357,8 +357,8 @@ def main():
 
             np_loss = loss.detach().cpu().numpy()
             interval_loss += np_loss
-            if vis is not None:
-                vis.vis_scalar('Loss', cur_itrs, np_loss)
+            # if vis is not None:
+            #     vis.vis_scalar('Loss', cur_itrs, np_loss)
 
             if (cur_itrs) % 10 == 0:
                 interval_loss = interval_loss / 10

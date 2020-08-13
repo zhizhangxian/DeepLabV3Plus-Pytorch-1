@@ -93,7 +93,7 @@ class VOCSegmentation(data.Dataset):
                  image_set='train',
                  download=False,
                  transform=None,
-                 num_copy=1):
+                 num_copy=0):
 
         is_aug = False
         if year == '2012_aug':
@@ -155,7 +155,10 @@ class VOCSegmentation(data.Dataset):
         W, H = img.size
         target = Image.open(self.masks[index])
         if self.transform is not None:
-            if self.num_copy == 1:
+            if self.num_copy == 0:
+                img, target = self.transform(img, target)
+                return img, target
+            elif self.num_copy == 1:
                 img, target = self.transform(img, target)
                 overlap = torch.zeros((H, W), dtype=torch.bool)
                 return img, target, overlap
@@ -246,8 +249,9 @@ def main():
             a = (img_1 == img_2)
             print(a)
         break
-    exit()
     for diter in dl_val:
+        print(len(diter))
+        exit()
         img, label = diter[0], diter[1]
         print(img.shape)
         print(label.shape)
